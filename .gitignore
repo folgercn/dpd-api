@@ -10,6 +10,9 @@
 !.yarn/releases
 !.yarn/versions
 
+# legacy dependencies
+legacy/node_modules
+
 # testing
 /coverage
 
@@ -23,12 +26,16 @@
 # misc
 .DS_Store
 *.pem
+*.xlsx
+dev.db
+dev.db-journal
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
 # env files (can opt-in for committing if needed)
 .env*
@@ -39,3 +46,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDEs
+.idea/
+.vscode/
+
+/src/generated/prisma

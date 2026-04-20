@@ -1,0 +1,108 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  username     String        @unique
+  passwordHash String
+  role         String        @default("USER") // ADMIN, USER
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  dpdAccounts  DpdAccount[]
+  orders       Order[]
+  batches      Batch[]
+  auditLogs    AuditLog[]
+}
+
+model DpdAccount {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+  accountName    String
+  dpdUsername    String
+  dpdPasswordEnc String
+  loginUrl       String    @default("https://mydpd.dpd.de/login")
+  sessionData    String?   // JSON string of Playwright storageState
+  sessionExpiry  DateTime?
+  status         String    @default("ACTIVE") // ACTIVE, DISABLED
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  orders         Order[]
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  dpdAccountId    String
+  dpdAccount      DpdAccount  @relation(fields: [dpdAccountId], references: [id])
+  customerOrderNo String?
+  trackingNumber  String?     // Resulting tracking number
+  status          String      @default("PENDING") // PENDING, QUEUED, PROCESSING, SUCCESS, FAILED, CANCELLED
+  
+  // Sender info
+  senderName      String
+  senderCompany   String?
+  senderPhone     String
+  senderAddress   String
+  senderCity      String
+  senderZip       String
+  senderCountry   String      @default("DE")
+
+  // Recipient info
+  recipientName    String
+  recipientPhone   String
+  recipientAddress String
+  recipientCity    String
+  recipientZip     String
+  recipientCountry String
+
+  // Parcel info
+  weight           Float
+  length           Float?
+  width            Float?
+  height           Float?
+  productName      String?
+  sku              String?
+  quantity         Int        @default(1)
+  declaredValue    Float?
+  
+  errorMessage     String?
+  batchId          String?
+  batch            Batch?      @relation(fields: [batchId], references: [id])
+  
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+model Batch {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  fileName     String
+  totalCount   Int
+  successCount Int      @default(0)
+  failCount    Int      @default(0)
+  status       String   @default("PARSING") // PARSING, READY, RUNNING, DONE, ERROR
+  orders       Order[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  detail    String
+  createdAt DateTime @default(now())
+}
