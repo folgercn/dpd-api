@@ -1,36 +1,116 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DPD API and Chrome Extension
 
-## Getting Started
+Next.js backend plus a Chrome extension for parsing pasted Excel shipment rows with AI and filling myDPD Business forms.
 
-First, run the development server:
+## Current Flow
+
+1. Paste one or more Excel rows into the Chrome extension popup.
+2. The popup calls `POST /api/parse-address`.
+3. The API calls OpenRouter with `google/gemini-3-flash-preview` and returns structured shipment data.
+4. The popup previews parsed rows.
+5. The selected row is sent to `content.js`, which fills the active DPD page.
+
+## Environment
+
+Create `.env.local` in the project root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+AI_PROVIDER=openrouter
+OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=google/gemini-3-flash-preview
+OPENROUTER_REFERER=http://localhost:3000
+OPENROUTER_APP_TITLE=DPD Address Parser
+START_SHIPMENT_WORKER=false
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`START_SHIPMENT_WORKER=false` keeps the older Playwright shipment worker disabled during local development. The Chrome extension flow does not need that worker.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Development
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+The API runs at:
 
-To learn more about Next.js, take a look at the following resources:
+```text
+http://localhost:3000/api/parse-address
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+If `.env.local`, `next.config.ts`, or dependencies change, restart `npm run dev`. Normal API and extension source edits can be reloaded without restarting Next.js.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Chrome Extension
 
-## Deploy on Vercel
+Load the unpacked extension from:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```text
+/Users/fujun/node/dpd-api/src/extension
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+In Chrome:
+
+```text
+chrome://extensions -> Developer mode -> Load unpacked
+```
+
+Reload rules:
+
+- `popup.html` / `popup.js`: close and reopen the popup.
+- `content.js` / `manifest.json`: reload the extension, then refresh the DPD page.
+
+## Supported DPD Pages
+
+### Under 20kg
+
+```text
+https://business.dpd.de/auftragsstart/auftrag-starten.aspx
+```
+
+Current mapping:
+
+- Upper `Absender / LabelAddress` block: customer address parsed from Excel.
+- Lower `Empfänger / ShipAddress` block: fixed warehouse address.
+- Parcel section: weight, optional dimensions, and reference.
+
+Fixed warehouse:
+
+```text
+EXPO Service GmbH
+Hua Zhang
+Darmstädter Str. 117
+64319 Pfungstadt
+Germany / DEU
+zhhh6489@gmail.com
++49 (0)15257038155
+```
+
+### Over 20kg / Return
+
+```text
+https://business.dpd.de/retouren/retoure-beauftragen.aspx
+```
+
+Current mapping:
+
+- Customer country
+- Customer postcode
+- Customer email
+- Parcel weight
+- Reference 1
+
+The return address is selected from the DPD account address book.
+
+## Verification
+
+Useful local checks:
+
+```bash
+npx tsc --noEmit
+node --check src/extension/popup.js
+node --check src/extension/content.js
+npm run build
+```
+
+`npm run lint` currently fails in the existing ESLint/Next config compatibility layer with a circular structure error before it reaches project code.

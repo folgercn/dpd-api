@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "DPD AI 自动填单助手",
+  "version": "1.0.0",
+  "description": "通过 AI 自动拆分地址并填写 DPD 运单表单。",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://business.dpd.de/*",
+    "https://*/*",
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://business.dpd.de/retouren/retoure-beauftragen.aspx*",
+        "https://business.dpd.de/auftragsstart/auftrag-starten.aspx*"
+      ],
+      "js": ["content.js"]
+    }
+  ]
+}
