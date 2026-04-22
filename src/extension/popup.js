@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = 'http://localhost:3000/api/parse-address';
+const DEFAULT_API_URL = 'https://dpdapi.sunnywifi.cn/api';
 
 const pasteArea = document.getElementById('pasteArea');
 const apiUrlInput = document.getElementById('apiUrl');
@@ -218,9 +218,10 @@ settingsToggle.addEventListener('click', () => {
 // 激活逻辑
 async function checkAuth(key) {
   const apiUrl = apiUrlInput.value.trim() || DEFAULT_API_URL;
-  // 构造基础 API 地址（去掉最后的 /parse-address）
-  const baseApi = apiUrl.substring(0, apiUrl.lastIndexOf('/'));
-  const verifyUrl = `${baseApi}/auth/verify`;
+  // 更加智能的 URL 拼接
+  const verifyUrl = apiUrl.endsWith('/api') 
+    ? `${apiUrl}/verify` 
+    : apiUrl.replace(/\/parse-address$/, '/verify');
 
   try {
     const response = await fetch(verifyUrl, {
