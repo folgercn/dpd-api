@@ -44,11 +44,13 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            # 强制加载环境变量
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            export PATH=$PATH:$HOME/.nvm/versions/node/$(nvm current)/bin:$HOME/.local/bin
+            
             cd ~/dpd-api
-            # 安装生产环境依赖
             npm install --production
-            # 同步数据库结构
             npx prisma db push
-            # 重启 PM2 进程
             pm2 startOrReload ecosystem.config.js
             pm2 save
