@@ -202,16 +202,17 @@ async function checkUpdates() {
     };
 
     if (data.version && isNewer(data.version, manifest.version)) {
-      const banner = document.createElement('div');
-      banner.id = 'updateBanner';
-      banner.className = 'update-banner';
-      banner.innerHTML = `
-        <span>🚀 发现新版本 v${data.version}</span>
-        <a href="${data.downloadUrl}" target="_blank">立即下载</a>
-        <button id="closeUpdate">✕</button>
-      `;
-      document.body.prepend(banner);
-      document.getElementById('closeUpdate').onclick = () => banner.remove();
+      const banner = document.getElementById('updateBanner');
+      const updateText = document.getElementById('updateText');
+      const closeBtn = document.getElementById('closeUpdate');
+      const downloadLink = banner.querySelector('a');
+
+      if (banner && updateText) {
+        updateText.textContent = `发现新版本 v${data.version}`;
+        downloadLink.href = data.downloadUrl;
+        banner.style.display = 'flex';
+        closeBtn.onclick = () => banner.style.display = 'none';
+      }
     }
   } catch (e) {
     console.error('Check update failed', e);
