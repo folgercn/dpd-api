@@ -1,15 +1,102 @@
-name: Master Deploy & Auto Release (Serverless Mode)
+name: Master Deploy & Auto Release
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  release-extension:
+  detect-changes:
     runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      extension: ${{ steps.filter.outputs.extension }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed areas
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'src/app/**'
+              - 'src/lib/**'
+              - 'src/instrumentation.ts'
+              - 'next.config.ts'
+              - 'ecosystem.config.js'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/deploy.yml'
+            extension:
+              - 'src/extension/**'
+              - '.github/workflows/deploy.yml'
+
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Prepare server deploy directory
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            mkdir -p ~/dpd-api
+            find ~/dpd-api -mindepth 1 -maxdepth 1 \
+              ! -name '.env' \
+              ! -name 'logs' \
+              -exec rm -rf {} +
+
+      - name: Copy files to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: ".next,package.json,package-lock.json,next.config.ts,ecosystem.config.js"
+          target: "~/dpd-api"
+
+      - name: SSH and Restart PM2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            export PATH="$PATH:$HOME/.local/bin:$HOME/.nvm/versions/node/$(nvm current)/bin"
+            cd ~/dpd-api
+            npm install --omit=dev
+            pm2 startOrReload ecosystem.config.js
+            pm2 save
+
+  release-extension:
+    name: Release Extension
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.extension == 'true'
     permissions:
       contents: write
-    
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,7 +107,6 @@ jobs:
         with:
           node-version: '20'
 
-      # --- 1. 自动打标获取新版本号 ---
       - name: Auto Tagging
         id: tag_version
         uses: anothrNick/github-tag-action@1.64.0
@@ -29,7 +115,6 @@ jobs:
           WITH_V: true
           DEFAULT_BUMP: patch
 
-      # --- 2. 同步版本号到插件配置文件 ---
       - name: Update extension and package versions
         run: |
           VERSION=${{ steps.tag_version.outputs.new_tag }}
@@ -58,13 +143,11 @@ jobs:
           fs.writeFileSync(packageLockPath, JSON.stringify(lock, null, 2) + '\n');
           EOF
 
-      # --- 3. 打包插件 ZIP ---
       - name: Zip extension
         run: |
           cd src/extension
           zip -r ../../dpd-extension.zip .
 
-      # --- 4. 发布 GitHub Release ---
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -73,7 +156,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # --- 5. 生成 version.json 和 updates.xml 用于插件更新 ---
       - name: Generate update metadata
         run: |
           VERSION=${{ steps.tag_version.outputs.new_tag }}
@@ -95,7 +177,6 @@ jobs:
           </gupdate>
           EOF
 
-      # --- 6. 部署到 GitHub Pages (存放 version.json 和 updates.xml) ---
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
