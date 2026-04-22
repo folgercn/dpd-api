@@ -1,14 +1,19 @@
-name: Deploy to Production
+name: Master Deploy & Auto Release
 
 on:
   push:
-    branches: [ main ] # 只有推送到 main 分支时才触发部署
+    branches: [ main ]
 
 jobs:
-  deploy:
+  deploy-and-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 必须有写入权限才能打标和发 Release
+    
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 必须获取所有历史记录才能计算版本号
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -25,15 +30,15 @@ jobs:
       - name: Build project
         run: npm run build
         env:
-          DATABASE_URL: "file:./dev.db" # 构建时使用的占位符
+          DATABASE_URL: "file:./dev.db"
 
+      # --- 1. 部署到服务器 ---
       - name: Copy files to server
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # 只同步运行生产环境必需的文件，节省带宽和空间
           source: ".next,public,package.json,package-lock.json,next.config.ts,ecosystem.config.js,prisma"
           target: "~/dpd-api"
 
@@ -44,13 +49,61 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 强制加载环境变量
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
             export PATH=$PATH:$HOME/.nvm/versions/node/$(nvm current)/bin:$HOME/.local/bin
-            
             cd ~/dpd-api
             npm install --production
             npx prisma db push
             pm2 startOrReload ecosystem.config.js
             pm2 save
+
+      # --- 2. 自动打标 ---
+      - name: Auto Tagging
+        id: tag_version
+        uses: anothrNick/github-tag-action@1.64.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: patch # 每次 push 自动增加修订号
+
+      # --- 3. 打包插件并发布 Release ---
+      - name: Update manifest version
+        run: |
+          VERSION=${{ steps.tag_version.outputs.new_tag }}
+          VERSION_CLEAN=${VERSION#v}
+          echo "Syncing manifest to $VERSION_CLEAN"
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION_CLEAN\"/" src/extension/manifest.json
+
+      - name: Zip extension
+        run: |
+          cd src/extension
+          zip -r ../../dpd-extension.zip .
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag_version.outputs.new_tag }}
+          files: dpd-extension.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate updates.xml
+        run: |
+          VERSION=${{ steps.tag_version.outputs.new_tag }}
+          VERSION_CLEAN=${VERSION#v}
+          cat <<EOF > updates.xml
+          <?xml version='1.0' encoding='UTF-8'?>
+          <gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
+            <app appid='pcfjbigbfcibglpegphbafmolhhkkmdh'>
+              <updatecheck codebase='https://github.com/folgercn/dpd-api/releases/download/$VERSION/dpd-extension.zip' version='$VERSION_CLEAN' />
+            </app>
+          </gupdate>
+          EOF
+
+      - name: Deploy updates.xml to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          publish_branch: gh-pages
