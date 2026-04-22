@@ -275,7 +275,7 @@ export async function POST(req: NextRequest) {
     "Extract shipment/order reference codes into reference. If both 'Customer Order No' and 'SKU' exist, combine them like 'OrderNo / SKU'.",
     "Extract parcel dimensions into lengthCm, widthCm and heightCm when present. Use 0 when absent.",
     "Set serviceType to RETURN when weightKg is above 20 or the row explicitly says return/retoure.",
-    "Special format recognition: If the input looks like tab-separated Excel rows with headers: '发件人邮编', '收件人姓名', '收件人公司', '收件人电话', '收件人国家', '收件人城市', '收件人地址', '收件人地址二', '收件人邮编', '客户订单号', 'SKU1', '重量(kg)', '数量1'.",
+    "Special format recognition: The input is a tab-separated row with exactly 18 columns: 1.Sender Name, 2.Sender Phone, 3.Sender Country, 4.Sender City, 5.Sender Address, 6.Sender Zip, 7.Recipient Name, 8.Recipient Company, 9.Recipient Phone, 10.Recipient Country, 11.Recipient City, 12.Recipient Address, 13.Recipient Address2, 14.Recipient Zip, 15.Customer Order No, 16.SKU, 17.Weight(kg), 18.Quantity.",
     `The destination (recipient) is usually this warehouse: ${process.env.WAREHOUSE_INFO || "EXPO Service GmbH, Pfungstadt, Germany"}.`,
     "Return JSON only.",
   ].join(" ");
