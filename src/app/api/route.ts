@@ -286,14 +286,14 @@ export async function POST(req: NextRequest) {
     "If the customer's company field is empty in the input, the 'company' field in JSON MUST be empty string.",
     "Return JSON only.",
   ].join(" ");
-  const userPrompt = `Parse this pasted table text into JSON shipments:\n\n${parsedRequest.data.text}`;
+  const userPrompt = `Parse this pasted table text into JSON shipments:\n\n${parsedRequest.data?.text || ""}`;
 
   // 5. 调用 AI
   const startTime = Date.now();
   logger.info("[AI_REQUEST] 发起地址解析", { 
     provider, 
     model, 
-    textLength: body.text.length,
+    textLength: body.text?.length || 0,
     license: maskedKey 
   });
 
