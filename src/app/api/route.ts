@@ -267,6 +267,11 @@ export async function POST(req: NextRequest) {
     ? process.env.OPENAI_BASE_URL || "https://api.openai.com/v1"
     : process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
   const endpoint = provider === "openai" ? "responses" : "chat/completions";
+
+  // --- AI 解析已停用，改用前端本地解析 ---
+  return json({ 
+    error: "服务端 AI 解析已停用。请确保您的插件已更新至最新版本以使用本地解析功能（响应更迅速且零延迟）。" 
+  }, { status: 403 });
   const systemPrompt = [
     "You parse pasted logistics spreadsheet rows into DPD shipment fields.",
     "Keep one shipment per input row when possible.",
@@ -276,7 +281,9 @@ export async function POST(req: NextRequest) {
     "Extract parcel dimensions into lengthCm, widthCm and heightCm when present. Use 0 when absent.",
     "Set serviceType to RETURN when weightKg is above 20 or the row explicitly says return/retoure.",
     "Special format recognition: The input is a tab-separated row with exactly 18 columns: 1.Sender Name, 2.Sender Phone, 3.Sender Country, 4.Sender City, 5.Sender Address, 6.Sender Zip, 7.Recipient Name, 8.Recipient Company, 9.Recipient Phone, 10.Recipient Country, 11.Recipient City, 12.Recipient Address, 13.Recipient Address2, 14.Recipient Zip, 15.Customer Order No, 16.SKU, 17.Weight(kg), 18.Quantity.",
-    `The destination (recipient) is usually this warehouse: ${process.env.WAREHOUSE_INFO || "EXPO Service GmbH, Pfungstadt, Germany"}.`,
+    "Extract the CUSTOMER'S address (the non-warehouse party).",
+    "CRITICAL: Do NOT mix fields. If one column belongs to the warehouse (e.g., 'EXPO Service GmbH' or 'Hua Zhang'), ignore it completely. Do NOT put the warehouse's company name into the customer's company field.",
+    "If the customer's company field is empty in the input, the 'company' field in JSON MUST be empty string.",
     "Return JSON only.",
   ].join(" ");
   const userPrompt = `Parse this pasted table text into JSON shipments:\n\n${parsedRequest.data.text}`;

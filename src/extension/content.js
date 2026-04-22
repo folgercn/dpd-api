@@ -32,104 +32,166 @@ const WAREHOUSE = {
   email: 'zhhh6489@gmail.com',
 };
 
+function fillAddressBlock(prefix, address, missed, labelPrefix) {
+  let filledCount = 0;
+
+  // 处理称呼 - 尝试多种可能的 ID (DPD 在不同页面用 Mr/Male)
+  if (address.company) {
+    filledCount += fillField(`CPLContentLarge_chk${prefix}_Salutation_Company`, true, missed, `${labelPrefix}.salutation_company`, prefix);
+    filledCount += fillField(`txt${prefix}_Company`, address.company, missed, `${labelPrefix}.company`, prefix);
+  } else {
+    // 尝试不同的“无称呼” ID
+    const noneIds = [`CPLContentLarge_chk${prefix}_Salutation_None`, `CPLContentLarge_chk${prefix}_Salutation_None_None` /* 备选 */];
+    let foundNone = false;
+    for (const nid of noneIds) {
+      if (document.getElementById(nid)) {
+        filledCount += fillField(nid, true, missed, `${labelPrefix}.salutation_none`, prefix);
+        foundNone = true;
+        break;
+      }
+    }
+    // 强制清空公司名
+    filledCount += fillField(`txt${prefix}_Company`, '', missed, `${labelPrefix}.company`, prefix);
+  }
+
+  // 姓名处理
+  const [firstName, lastName] = address.recipientName ? splitName(address.recipientName) : [address.firstName, address.lastName];
+  filledCount += fillField(`txt${prefix}_FirstName`, firstName, missed, `${labelPrefix}.firstName`, prefix);
+  filledCount += fillField(`txt${prefix}_LastName`, lastName, missed, `${labelPrefix}.lastName`, prefix);
+
+  // 地址处理
+  const [street, houseNo] = address.street ? splitStreet(address.street) : [address.streetName, address.houseNumber];
+  filledCount += fillField(`txt${prefix}_Street`, street, missed, `${labelPrefix}.street`, prefix);
+  filledCount += fillField(`txt${prefix}_HouseNo`, houseNo || address.houseNumber || '', missed, `${labelPrefix}.houseNo`, prefix);
+  
+  filledCount += fillField(`txt${prefix}_ZipCode`, address.postalCode, missed, `${labelPrefix}.postalCode`, prefix);
+  filledCount += fillField(`txt${prefix}_City`, address.city, missed, `${labelPrefix}.city`, prefix);
+  filledCount += fillField(`txt${prefix}_Phone`, address.phone, missed, `${labelPrefix}.phone`, prefix);
+  filledCount += fillField(`txt${prefix}_Mail`, address.email || '', missed, `${labelPrefix}.email`, prefix);
+
+  // 地址补充信息 (Adresszusatz)
+  if (address.addressLine2) {
+    filledCount += fillField(`txt${prefix}_AdditionalInfo`, address.addressLine2, missed, `${labelPrefix}.additionalInfo`, prefix);
+  }
+
+  // 国家选择器
+  if (address.country) {
+    const countryIds = [`sel${prefix}_Country`, `CPLContentLarge_sel${prefix}_Country`];
+    for (const cid of countryIds) {
+      if (document.getElementById(cid)) {
+        filledCount += fillSelect(cid, address.country, missed, `${labelPrefix}.country`);
+        break;
+      }
+    }
+  }
+
+  return filledCount;
+}
+
 function fillStartOrderPage(shipment) {
   const missed = [];
   let filledCount = 0;
 
-  // 20kg-under flow: the upper Absender/LabelAddress block is the customer.
-  // The lower Empfänger/ShipAddress block is the fixed warehouse.
-  filledCount += fillField('CPLContentLarge_chkLabelAddress_UsePickupAddressAsLabelAddress', false, missed, 'usePickupAsSender');
-  filledCount += fillAddressBlock('LabelAddress', shipment, missed, 'customer');
-  filledCount += fillAddressBlock('ShipAddress', WAREHOUSE, missed, 'warehouse');
-  filledCount += fillField('txtWeight_Parcel_1', shipment.weightKg, missed, 'weightKg');
-  filledCount += fillField('txtOrderData_OrderReferenceList_OrderReference1', shipment.reference, missed, 'reference');
+  // 1. 填充发件人 (LabelAddress)
+  if (shipment.sender) {
+    filledCount += fillAddressBlock('LabelAddress', shipment.sender, missed, 'sender');
+  }
 
-  if (shipment.lengthCm) filledCount += fillField('txtLength_Parcel_1', shipment.lengthCm, missed, 'lengthCm');
-  if (shipment.widthCm) filledCount += fillField('txtWidth_Parcel_1', shipment.widthCm, missed, 'widthCm');
-  if (shipment.heightCm) filledCount += fillField('txtHeight_Parcel_1', shipment.heightCm, missed, 'heightCm');
+  // 2. 填充收件人 (ShipAddress)
+  if (shipment.recipient) {
+    filledCount += fillAddressBlock('ShipAddress', shipment.recipient, missed, 'recipient');
+  }
+
+  // 重量和参考号 (使用发货页专属的长 ID)
+  filledCount += fillField('txtWeight_Parcel_1', shipment.weightKg, missed, 'weightKg');
+  filledCount += fillField('txtOrderData_OrderReferenceList_OrderReference1', shipment.reference, missed, 'reference1');
 
   return { filledCount, missed };
-}
-
-function fillAddressBlock(prefix, address, missed, labelPrefix) {
-  let filledCount = 0;
-  const countryId = prefix === 'ShipAddress' ? 'CPLContentLarge_selShipAddress_Country' : `sel${prefix}_Country`;
-
-  filledCount += fillField(`CPLContentLarge_chk${prefix}_Salutation_None`, true, missed, `${labelPrefix}.salutation`);
-  filledCount += fillField(`txt${prefix}_Company`, address.company, missed, `${labelPrefix}.company`);
-  filledCount += fillField(`txt${prefix}_FirstName`, address.firstName, missed, `${labelPrefix}.firstName`);
-  filledCount += fillField(`txt${prefix}_LastName`, address.lastName, missed, `${labelPrefix}.lastName`);
-  filledCount += fillSelect(countryId, address.country, missed, `${labelPrefix}.country`);
-  filledCount += fillField(`txt${prefix}_ZipCode`, address.postalCode, missed, `${labelPrefix}.postalCode`);
-  filledCount += fillField(`txt${prefix}_City`, address.city, missed, `${labelPrefix}.city`);
-  filledCount += fillField(`txt${prefix}_Street`, address.street, missed, `${labelPrefix}.street`);
-  filledCount += fillField(`txt${prefix}_HouseNo`, address.houseNumber, missed, `${labelPrefix}.houseNumber`);
-  filledCount += fillField(`txt${prefix}_Mail`, address.email, missed, `${labelPrefix}.email`);
-  filledCount += fillField(`txt${prefix}_Phone`, address.phone, missed, `${labelPrefix}.phone`);
-
-  return filledCount;
 }
 
 function fillReturnPage(shipment) {
   const missed = [];
   let filledCount = 0;
 
-  // Real myDPD return page. For 20kg+ retoure this page only exposes country,
-  // postcode, email, references and package weight for the sender/customer.
-  filledCount += fillField('CPLContentLarge_chkInput_WithAddress', true, missed, 'returnAddressMode');
-  filledCount += fillSelect('CPLContentLarge_selCountry_WithoutAddress', shipment.country, missed, 'country');
-  filledCount += fillField('txtZipCode_WithoutAddress', shipment.postalCode, missed, 'postalCode');
-  filledCount += fillField('txtMail_WithoutAddress', shipment.email, missed, 'email');
+  // 1. 勾选“现在输入地址”按钮
+  filledCount += fillField('CPLContentLarge_chkInput_WithAddress', true, missed, 'inputNow');
+
+  // 2. 填充发件人 (Absender) - 也就是表格里的“发件人”
+  if (shipment.sender) {
+    filledCount += fillAddressBlock('Absender', shipment.sender, missed, 'sender');
+  }
+
+  // 3. 填充重量和参考号
   filledCount += fillField('txtWeight_Parcel1', shipment.weightKg, missed, 'weightKg');
-  filledCount += fillField('txtOrderReference1', shipment.reference || shipment.recipientName, missed, 'reference1');
+  filledCount += fillField('txtOrderReference1', shipment.reference, missed, 'reference1');
 
   return { filledCount, missed };
 }
 
 function prepareShipment(shipment) {
-  const streetParts = splitStreetAndHouseNumber(shipment.street || shipment.addressLine1 || '');
-  const nameParts = splitName(shipment.recipientName || '');
-
   return {
-    recipientName: shipment.recipientName || '',
-    firstName: shipment.firstName || nameParts.firstName,
-    lastName: shipment.lastName || nameParts.lastName,
-    company: shipment.company || '',
-    street: shipment.street || streetParts.street,
-    houseNumber: shipment.houseNumber || streetParts.houseNumber,
-    postalCode: shipment.postalCode || shipment.recipientZip || '',
-    city: shipment.city || shipment.recipientCity || '',
-    country: normalizeCountry(shipment.countryCode || shipment.recipientCountry || 'DE'),
-    phone: shipment.phone || '',
-    email: shipment.email || '',
+    sender: shipment.sender ? prepareAddress(shipment.sender) : null,
+    recipient: shipment.recipient ? prepareAddress(shipment.recipient) : null,
     weightKg: shipment.weightKg || shipment.weight || '',
-    lengthCm: shipment.lengthCm || shipment.length || '',
-    widthCm: shipment.widthCm || shipment.width || '',
-    heightCm: shipment.heightCm || shipment.height || '',
     reference: shipment.reference || [shipment.orderNo, shipment.sku].filter(Boolean).join(' / ') || shipment.orderReference || shipment.sourceRow || '',
   };
 }
 
-function fillField(id, value, missed, label) {
+function prepareAddress(addr) {
+  const [firstName, lastName] = splitName(addr.recipientName || '');
+  const [street, houseNo] = splitStreet(addr.street || '');
+
+  return {
+    recipientName: addr.recipientName || '',
+    firstName: addr.firstName || firstName,
+    lastName: addr.lastName || lastName,
+    company: addr.company || '',
+    street: street,
+    houseNumber: addr.houseNumber || houseNo,
+    postalCode: addr.postalCode || '',
+    city: addr.city || '',
+    country: normalizeCountry(addr.countryCode || addr.country || 'DE'),
+    phone: addr.phone || '',
+    email: addr.email || '',
+    addressLine2: addr.addressLine2 || '',
+  };
+}
+
+function fillField(id, value, missed, label, prefix = '') {
   if (value === undefined || value === null || value === '') {
     return 0;
   }
 
-  const element = document.getElementById(id);
-  if (!element) {
-    missed.push(label);
-    return 0;
+  // 1. 尝试绝对精准匹配
+  let el = document.getElementById(id) || document.getElementById(`CPLContentLarge_${id}`);
+  
+  // 2. 如果精准匹配失败，尝试带前缀的模糊匹配
+  if (!el && prefix) {
+    // 提取有意义的关键词（避开单纯的数字）
+    const parts = id.split('_');
+    const keyword = parts.length > 1 ? parts.slice(1).join('_') : id;
+    el = document.querySelector(`[id*="${prefix}"][id*="${keyword}"]`);
+  }
+  
+  // 3. 针对邮编的特殊模糊匹配
+  if (!el && (id.includes('ZipCode') || id.includes('PLZ'))) {
+    el = document.querySelector(`[id*="${prefix}"][id*="Zip"]`) || document.querySelector(`[id*="${prefix}"][id*="PLZ"]`);
   }
 
-  if (element.type === 'checkbox' || element.type === 'radio') {
-    element.checked = Boolean(value);
-    triggerEvents(element);
+  if (el) {
+    if (el.type === 'checkbox' || el.type === 'radio') {
+      el.checked = Boolean(value);
+      if (el.checked) el.click();
+    } else {
+      // 强力填入逻辑
+      setNativeValue(el, String(value));
+    }
+    triggerEvents(el);
     return 1;
   }
-
-  setNativeValue(element, String(value));
-  triggerEvents(element);
-  return 1;
+  
+  if (missed) missed.push(label);
+  return 0;
 }
 
 function fillSelect(id, country, missed, label) {
@@ -171,26 +233,7 @@ function triggerEvents(element) {
   element.dispatchEvent(new Event('blur', { bubbles: true }));
 }
 
-function splitName(name) {
-  const parts = String(name).trim().split(/\s+/).filter(Boolean);
-  if (parts.length <= 1) {
-    return { firstName: '', lastName: parts[0] || '' };
-  }
-
-  return {
-    firstName: parts.slice(0, -1).join(' '),
-    lastName: parts.at(-1) || '',
-  };
-}
-
-function splitStreetAndHouseNumber(address) {
-  const match = String(address).trim().match(/^(.+?)\s+(\d+\s?[a-zA-Z]?(?:[-/]\d+\s?[a-zA-Z]?)?)$/);
-  if (!match) {
-    return { street: address, houseNumber: '' };
-  }
-
-  return { street: match[1], houseNumber: match[2] };
-}
+// splitName 和 splitStreet 统一定义在文件末尾
 
 function normalizeCountry(country) {
   const raw = String(country || '').trim().toUpperCase();
@@ -263,4 +306,19 @@ if (document.readyState === 'complete') {
   checkPendingShipment();
 } else {
   window.addEventListener('load', checkPendingShipment);
+}
+function splitName(fullName) {
+  if (!fullName) return ['', ''];
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length <= 1) return ['', fullName];
+  const firstName = parts[0];
+  const lastName = parts.slice(1).join(' ');
+  return [firstName, lastName];
+}
+
+function splitStreet(fullStreet) {
+  if (!fullStreet) return ['', ''];
+  const parts = fullStreet.trim().split(/\s+(?=\d)/);
+  if (parts.length <= 1) return [fullStreet, ''];
+  return [parts[0], parts[1]];
 }
