@@ -58,6 +58,12 @@ async function parseAddressText() {
       const col = detectColumns(line);
       if (col.length < 18) continue;
 
+      // 自动跳过表头行：如果第一列包含“发件人”或“姓名”等字样
+      if (col[0].includes('发件人') || col[0].includes('姓名') || col[6].includes('收件人')) {
+        console.log('Skipping header row:', col[0]);
+        continue;
+      }
+
       // 同时提取发件人和收件人信息
       const sender = {
         recipientName: col[0],
@@ -153,7 +159,7 @@ async function fillSelectedShipment() {
   } else {
     // ... 跳转逻辑保持不变
     // 如果在错误的页面，或者不在 DPD 页面，则执行跳转
-    const msg = isReturn ? '检测到大包裹/退货，正在跳转至专用页面...' : '正在跳转至 DPD 发货页面...';
+    const msg = isReturn ? '检测到包裹 ≤ 20kg，正在跳转至退货页面...' : '检测到大包裹 > 20kg，正在跳转至发货页面...';
     setStatus(msg, 'loading');
     
     await chrome.storage.local.set({ 
