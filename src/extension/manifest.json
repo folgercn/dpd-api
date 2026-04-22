@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DPD AI 自动填单助手",
-  "version": "1.0.2",
+  "version": "1.0.11",
   "description": "通过 AI 自动拆分地址并填写 DPD 运单表单。",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5NuqiLq+omYxHHSoL4oLIUCTScww0ZZK/uo1iE3q3v4wKmretFckpXK47YWEoUQCEbqMEENuUIcpYgFnKrIe3YoIU/Oi/PEqWwvhXK19chpOx05Exf442zVr3bXeODzZEpl8D4LIwQytC34aAz28hAlDK+mOa7zzduxt3WHlnj2AGudJLAUvxzV5jE4HBpKbhYFlLKf9Y+V5f4ItbP7h3iQzoDy27voSO2mx0Fb5vRS7jR0J0d4uoQ77Gk6DxTRonSXGkHCX9ra0lN/zARlA4UjrdUWQQ40CH8Zudrkq3uACsYLobhwy3QN8uw42S8Jjl2PNHk9iPmCtT6qP6QcOjwIDAQAB",
   "update_url": "https://folgercn.github.io/dpd-api/updates.xml",
