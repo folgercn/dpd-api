@@ -99,6 +99,34 @@ async function parseAddressText() {
     throw new Error('请先粘贴 Excel 表格内容');
   }
 
+  // --- 严格字段校验开始 ---
+  const lines = text.split('\n');
+  if (lines.length < 1) {
+    throw new Error('内容为空，请重新粘贴');
+  }
+
+  const expectedHeaders = [
+    "发件人姓名", "发件人电话", "发件人国家", "发件人城市", "发件人地址", "发件人邮编",
+    "收件人姓名", "收件人公司", "收件人电话", "收件人国家", "收件人城市", "收件人地址",
+    "收件人地址二", "收件人邮编", "客户订单号", "SKU1", "重量(kg)", "数量1"
+  ];
+
+  const headers = lines[0].split('\t').map(h => h.trim());
+  
+  // 校验列数
+  if (headers.length !== expectedHeaders.length) {
+    throw new Error(`表格列数不匹配！预期 ${expectedHeaders.length} 列，实际检测到 ${headers.length} 列。\n请确保您是从样本 Excel 中完整复制的。`);
+  }
+
+  // 校验关键表头内容 (检查前 5 个和后 3 个字段是否匹配)
+  const criticalIndexes = [0, 1, 2, 3, 4, 15, 16, 17];
+  for (let idx of criticalIndexes) {
+    if (headers[idx] !== expectedHeaders[idx]) {
+      throw new Error(`表格字段顺序或名称不正确！\n第 ${idx + 1} 列应该是 "${expectedHeaders[idx]}"，但检测到是 "${headers[idx]}"`);
+    }
+  }
+  // --- 严格字段校验结束 ---
+
   await chrome.storage.sync.set({ apiUrl });
   setStatus('正在解析地址...', 'loading');
   setBusy(true);
