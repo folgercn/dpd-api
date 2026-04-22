@@ -38,11 +38,11 @@ Next.js 后端加上一个 Chrome 扩展程序，利用 AI 解析粘贴的 Excel
 
 ## 支持的 DPD 页面
 
-### 20kg 以下
-`https://business.dpd.de/auftragsstart/auftrag-starten.aspx`
-
-### 20kg 以上 / 退货 (Return)
+### 20kg 以下 / 退货 (Return)
 `https://business.dpd.de/retouren/retoure-beauftragen.aspx`
+
+### 20kg 以上
+`https://business.dpd.de/auftragsstart/auftrag-starten.aspx`
 
 
 ## 🔄 如何更新插件
