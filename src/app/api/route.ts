@@ -276,7 +276,7 @@ export async function POST(req: NextRequest) {
     "Extract parcel dimensions into lengthCm, widthCm and heightCm when present. Use 0 when absent.",
     "Set serviceType to RETURN when weightKg is above 20 or the row explicitly says return/retoure.",
     "Special format recognition: If the input looks like tab-separated Excel rows with headers: '发件人邮编', '收件人姓名', '收件人公司', '收件人电话', '收件人国家', '收件人城市', '收件人地址', '收件人地址二', '收件人邮编', '客户订单号', 'SKU1', '重量(kg)', '数量1'.",
-    "In this format, map '发件人邮编' to postalCode and use '客户订单号' + 'SKU1' for reference. The '收件人' info is usually the fixed warehouse.",
+    `The destination (recipient) is usually this warehouse: ${process.env.WAREHOUSE_INFO || "EXPO Service GmbH, Pfungstadt, Germany"}.`,
     "Return JSON only.",
   ].join(" ");
   const userPrompt = `Parse this pasted table text into JSON shipments:\n\n${parsedRequest.data.text}`;

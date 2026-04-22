@@ -70,47 +70,12 @@ http://localhost:3000/api/parse-address
 ## 支持的 DPD 页面
 
 ### 20kg 以下
-
-```text
-https://business.dpd.de/auftragsstart/auftrag-starten.aspx
-```
-
-当前映射关系：
-
-- 上方的 `Absender / LabelAddress` 区块：从 Excel 解析出的客户地址。
-- 下方的 `Empfänger / ShipAddress` 区块：固定的仓库地址。
-- 包裹（Parcel）部分：重量、可选的尺寸和参考号。
-
-固定仓库信息：
-
-```text
-EXPO Service GmbH
-Hua Zhang
-Darmstädter Str. 117
-64319 Pfungstadt
-Germany / DEU
-zhhh6489@gmail.com
-+49 (0)15257038155
-```
+`https://business.dpd.de/auftragsstart/auftrag-starten.aspx`
 
 ### 20kg 以上 / 退货 (Return)
-
-```text
-https://business.dpd.de/retouren/retoure-beauftragen.aspx
-```
-
-当前映射关系：
-
-- 客户国家
-- 客户邮编（取自“发件人邮编”）
-- 客户邮箱
-- 包裹重量
-- 参考号 1（取自“客户订单号” + “SKU1”）
-
-退货地址将从 DPD 账户地址簿中选择。
+`https://business.dpd.de/retouren/retoure-beauftragen.aspx`
 
 ## 验证
-
 常用的本地检查命令：
 
 ```bash
