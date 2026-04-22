@@ -7,8 +7,19 @@ const fillBtn = document.getElementById('fillBtn');
 const statusEl = document.getElementById('status');
 const previewEl = document.getElementById('preview');
 
+// 新增 UI 元素
+const settingsToggle = document.getElementById('settingsToggle');
+const settingsPanel = document.getElementById('settingsPanel');
+const licenseKeyInput = document.getElementById('licenseKey');
+const activateBtn = document.getElementById('activateBtn');
+const authStatus = document.getElementById('authStatus');
+const versionTag = document.getElementById('versionTag');
+const mainContent = document.getElementById('mainContent');
+const lockOverlay = document.getElementById('lockOverlay');
+
 let parsedShipments = [];
 let selectedIndex = 0;
+let isAuthorized = false;
 
 function setStatus(message, type = '') {
   statusEl.className = type;
@@ -58,6 +69,10 @@ async function getActiveTab() {
 }
 
 async function parseAddressText() {
+  if (!isAuthorized) {
+    throw new Error('请先激活插件');
+  }
+
   const text = pasteArea.value.trim();
   const apiUrl = apiUrlInput.value.trim() || DEFAULT_API_URL;
 
@@ -71,7 +86,10 @@ async function parseAddressText() {
 
   const response = await fetch(apiUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${await getLicenseKey()}`
+    },
     body: JSON.stringify({ text }),
   });
 
@@ -192,14 +210,91 @@ fillBtn.addEventListener('click', async () => {
   }
 });
 
-previewEl.addEventListener('click', (event) => {
-  const item = event.target.closest('.shipment');
-  if (!item) return;
-
-  selectedIndex = Number(item.dataset.index || 0);
-  renderPreview();
+// 设置面板切换
+settingsToggle.addEventListener('click', () => {
+  settingsPanel.classList.toggle('active');
 });
 
-chrome.storage.sync.get({ apiUrl: DEFAULT_API_URL }, (items) => {
-  apiUrlInput.value = items.apiUrl;
+// 激活逻辑
+async function checkAuth(key) {
+  const apiUrl = apiUrlInput.value.trim() || DEFAULT_API_URL;
+  // 构造基础 API 地址（去掉最后的 /parse-address）
+  const baseApi = apiUrl.substring(0, apiUrl.lastIndexOf('/'));
+  const verifyUrl = `${baseApi}/auth/verify`;
+
+  try {
+    const response = await fetch(verifyUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ licenseKey: key }),
+    });
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    return { success: false, message: '无法连接到服务器' };
+  }
+}
+
+async function getLicenseKey() {
+  const items = await chrome.storage.sync.get({ licenseKey: '' });
+  return items.licenseKey;
+}
+
+activateBtn.addEventListener('click', async () => {
+  const key = licenseKeyInput.value.trim();
+  const result = await checkAuth(key);
+  
+  if (result.success) {
+    isAuthorized = true;
+    authStatus.textContent = '✅ 已激活';
+    authStatus.style.color = '#166534';
+    await chrome.storage.sync.set({ licenseKey: key });
+    updateUIForAuth();
+  } else {
+    authStatus.textContent = '❌ ' + result.message;
+    authStatus.style.color = '#dc3545';
+  }
+});
+
+function updateUIForAuth() {
+  if (isAuthorized) {
+    mainContent.style.display = 'block';
+    lockOverlay.style.display = 'none';
+  } else {
+    mainContent.style.display = 'none';
+    lockOverlay.style.display = 'block';
+  }
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded', () => {
+  // 显示版本号
+  const manifest = chrome.runtime.getManifest();
+  versionTag.textContent = `v${manifest.version}`;
+
+  // 加载存储的配置
+  chrome.storage.sync.get({ 
+    apiUrl: DEFAULT_API_URL,
+    licenseKey: ''
+  }, async (items) => {
+    apiUrlInput.value = items.apiUrl;
+    licenseKeyInput.value = items.licenseKey;
+    
+    if (items.licenseKey) {
+      authStatus.textContent = '正在验证激活状态...';
+      const result = await checkAuth(items.licenseKey);
+      if (result.success) {
+        isAuthorized = true;
+        authStatus.textContent = '✅ 已激活';
+        authStatus.style.color = '#166534';
+      } else {
+        isAuthorized = false;
+        authStatus.textContent = '❌ ' + (result.message || '激活已失效');
+        authStatus.style.color = '#dc3545';
+        // 自动展开设置面板，提醒用户
+        settingsPanel.classList.add('active');
+      }
+    }
+    updateUIForAuth();
+  });
 });

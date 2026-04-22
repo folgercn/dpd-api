@@ -10,15 +10,23 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  // 绕过循环引用的最稳方案：只加载必要的解析器和规则
   {
+    files: ["**/*.ts", "**/*.tsx"],
+    languageOptions: {
+      parser: (await import("@typescript-eslint/parser")).default,
+      parserOptions: {
+        project: "./tsconfig.json",
+      },
+    },
+    plugins: {
+      "@typescript-eslint": (await import("@typescript-eslint/eslint-plugin")).default,
+    },
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/no-unused-vars": "warn",
-      "react/no-unescaped-entities": "off"
-    }
-  }
+    },
+  },
 ];
 
 export default eslintConfig;

@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "/Users/fujun/node/dpd-api/logs/.732ef049d2ab898232259be02f8ba4f01d22a3f8-audit.json",
+    "files": [
+        {
+            "date": 1776833934234,
+            "name": "/Users/fujun/node/dpd-api/logs/dpd-api-2026-04-22.log",
+            "hash": "0965bb4c9967206330ca0ea955fb56dbf63b747460f8ac0162ce8ce2fb49da2e"
+        }
+    ],
+    "hashType": "sha256"
+}
