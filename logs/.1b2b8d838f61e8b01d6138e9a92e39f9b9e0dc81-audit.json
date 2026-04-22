@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "/home/runner/work/dpd-api/dpd-api/logs/.1b2b8d838f61e8b01d6138e9a92e39f9b9e0dc81-audit.json",
+    "files": [
+        {
+            "date": 1776835709848,
+            "name": "/home/runner/work/dpd-api/dpd-api/logs/dpd-api-2026-04-22.log",
+            "hash": "1a8340328d7a2eade889c945fc1a96806eaf383d5897513a35e8e935a5bced47"
+        }
+    ],
+    "hashType": "sha256"
+}
