@@ -170,49 +170,7 @@
       padding-top: 12px;
       border-top: 1px solid var(--line);
     }
-    .settings-panel {
-      display: none;
-      background: #f3f4f6;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 12px;
-      border: 1px dashed #d1d5db;
-    }
-    .settings-panel.active {
-      display: block;
-    }
-    .icon-btn {
-      background: transparent;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      padding: 4px;
-      font-size: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: auto;
-    }
-    .icon-btn:hover {
-      color: var(--primary);
-      background: transparent;
-    }
-    .auth-section {
-      margin-bottom: 12px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--line);
-    }
-    .badge {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: #e5e7eb;
-      color: #666;
-    }
-    .badge.success {
-      background: #dcfce7;
-      color: #166534;
-    }
+    /* 加载状态动画 */
     
     /* 加载状态动画 */
     @keyframes pulse {
@@ -240,20 +198,15 @@
     /* 更新提示条样式 */
     .update-banner {
       background: #fff3cd;
-      border: 1px solid #ffeeba;
       color: #856404;
-      padding: 8px 12px;
-      margin-bottom: 12px;
-      border-radius: 8px;
+      padding: 10px 16px;
+      margin: -16px -16px 16px -16px;
+      font-size: 13px;
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 13px;
+      justify-content: space-between;
+      border-bottom: 1px solid #ffeeba;
       animation: slideDown 0.3s ease-out;
-    }
-    @keyframes slideDown {
-      from { transform: translateY(-10px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
     }
     .update-banner a {
       color: #0056b3;
@@ -282,48 +235,22 @@
   <div class="header">
     <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
       <div class="mark">DPD</div>
-      <h1>AI 填单助手</h1>
-      <span id="versionTag" class="badge">v1.0.13</span>
+      <h1>DPD 地址解析</h1>
+      <span id="versionTag" class="badge">v1.0.20</span>
     </div>
-    <button id="settingsToggle" class="icon-btn" title="设置">⚙️</button>
   </div>
   
   <div class="card">
-    <!-- 设置面板 -->
-    <div id="settingsPanel" class="settings-panel">
-      <label for="apiUrl">API 接口地址</label>
-      <input id="apiUrl" type="url" placeholder="http://localhost:3000/api/parse-address">
-      <label for="licenseKey">激活码 / Token</label>
-      <div style="display: flex; gap: 8px;">
-        <input id="licenseKey" type="password" placeholder="请输入您的激活码" style="margin-bottom: 0;">
-        <button id="activateBtn" style="width: 80px;">激活</button>
-      </div>
-      <div id="authStatus" style="font-size: 11px; margin-top: 6px; color: var(--muted);"></div>
-    </div>
-
-    <!-- 鉴权遮罩提示 (可选) -->
-    <div id="lockOverlay" style="display: none; text-align: center; padding: 20px 0;">
-      <div style="font-size: 32px; margin-bottom: 12px;">🔒</div>
-      <p style="font-size: 14px; color: var(--muted); margin-bottom: 12px;">请先在设置中输入激活码以解锁功能</p>
-    </div>
-
     <div id="mainContent">
       <label for="pasteArea">表格内容</label>
-      <textarea id="pasteArea" placeholder="粘贴 Excel 中复制的姓名、地址、邮编、城市、电话、重量等列"></textarea>
+      <textarea id="pasteArea" style="height: 150px;" placeholder="粘贴 Excel 表格行数据..."></textarea>
       <div class="actions">
-        <button id="parseBtn" class="secondary">解析预览</button>
-        <button id="fillBtn" disabled>填入当前页</button>
+        <button id="fillBtn" class="primary" style="width: 100%; height: 44px; font-size: 16px;">立即填入 DPD 表单</button>
       </div>
-      <div id="preview"></div>
     </div>
   </div>
 
   <div id="status"></div>
-
-  <div class="footer">
-    <span>OpenAI 地址解析 · DPD API</span>
-    <span style="color: #ccc;">business.dpd.de</span>
-  </div>
 
   <script src="popup.js"></script>
 </body>
