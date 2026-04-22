@@ -47,21 +47,13 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
-async function getActiveDpdTab() {
+const PAGES = {
+  SHIPMENT: 'https://business.dpd.de/auftragsstart/auftrag-starten.aspx',
+  RETURN: 'https://business.dpd.de/retouren/retoure-beauftragen.aspx',
+};
+
+async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id || !tab.url) {
-    throw new Error('未找到当前活动标签页');
-  }
-
-  const allowedPages = [
-    'https://business.dpd.de/retouren/retoure-beauftragen.aspx',
-    'https://business.dpd.de/auftragsstart/auftrag-starten.aspx',
-  ];
-
-  if (!allowedPages.some((page) => tab.url.startsWith(page))) {
-    throw new Error('请先打开 DPD 20kg 以下或 20kg 以上下单页面');
-  }
-
   return tab;
 }
 
@@ -104,13 +96,58 @@ async function fillSelectedShipment() {
     throw new Error('请先解析地址');
   }
 
-  const tab = await getActiveDpdTab();
+  const shipment = parsedShipments[selectedIndex];
+  const isReturn = shipment.weightKg > 20 || shipment.serviceType === 'RETURN';
+  const targetUrl = isReturn ? PAGES.RETURN : PAGES.SHIPMENT;
+
+  const tab = await getActiveTab();
+  if (!tab?.id) throw new Error('未找到活动标签页');
+
+  // If already on the right page, just fill
+  if (tab.url && tab.url.startsWith(targetUrl)) {
+    await executeFill(tab.id, shipment);
+    return;
+  }
+
+  // Otherwise, redirect and wait
+  setStatus('正在跳转到匹配的 DPD 页面...', 'loading');
+  setBusy(true);
+  await chrome.tabs.update(tab.id, { url: targetUrl });
+
+  // Wait for the page to load
+  let attempts = 0;
+  const checkInterval = setInterval(async () => {
+    attempts++;
+    const currentTab = await chrome.tabs.get(tab.id);
+
+    if (currentTab.status === 'complete' && currentTab.url.startsWith(targetUrl)) {
+      clearInterval(checkInterval);
+      // Small delay to ensure content script is ready
+      setTimeout(async () => {
+        try {
+          await executeFill(tab.id, shipment);
+        } catch (error) {
+          setStatus(error.message, 'error');
+        } finally {
+          setBusy(false);
+        }
+      }, 1500);
+    } else if (attempts > 20) {
+      // 10 seconds timeout
+      clearInterval(checkInterval);
+      setStatus('跳转超时，请手动刷新页面后重试', 'error');
+      setBusy(false);
+    }
+  }, 500);
+}
+
+async function executeFill(tabId, shipment) {
   setStatus('正在填入 DPD 表单...', 'loading');
   setBusy(true);
 
-  const response = await sendFillMessage(tab.id, {
+  const response = await sendFillMessage(tabId, {
     action: 'FILL_DPD_FORM',
-    shipment: parsedShipments[selectedIndex],
+    shipment: shipment,
   });
 
   if (!response?.success) {
@@ -125,10 +162,7 @@ async function sendFillMessage(tabId, message) {
   try {
     return await chrome.tabs.sendMessage(tabId, message);
   } catch (error) {
-    if (!String(error.message || '').includes('Receiving end does not exist')) {
-      throw error;
-    }
-
+    // If content script not yet injected (common after redirect), inject it
     await chrome.scripting.executeScript({
       target: { tabId },
       files: ['content.js'],

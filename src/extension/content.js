@@ -106,7 +106,7 @@ function prepareShipment(shipment) {
     lengthCm: shipment.lengthCm || shipment.length || '',
     widthCm: shipment.widthCm || shipment.width || '',
     heightCm: shipment.heightCm || shipment.height || '',
-    reference: shipment.reference || shipment.orderReference || shipment.sourceRow || '',
+    reference: shipment.reference || [shipment.orderNo, shipment.sku].filter(Boolean).join(' / ') || shipment.orderReference || shipment.sourceRow || '',
   };
 }
 
