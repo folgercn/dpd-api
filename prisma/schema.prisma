@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,62 +8,54 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  username     String        @unique
+  id           String       @id @default(cuid())
+  username     String       @unique
   passwordHash String
-  role         String        @default("USER") // ADMIN, USER
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  role         String       @default("USER")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  auditLogs    AuditLog[]
+  batches      Batch[]
   dpdAccounts  DpdAccount[]
   orders       Order[]
-  batches      Batch[]
-  auditLogs    AuditLog[]
 }
 
 model DpdAccount {
   id             String    @id @default(cuid())
   userId         String
-  user           User      @relation(fields: [userId], references: [id])
   accountName    String
   dpdUsername    String
   dpdPasswordEnc String
   loginUrl       String    @default("https://mydpd.dpd.de/login")
-  sessionData    String?   // JSON string of Playwright storageState
+  sessionData    String?
   sessionExpiry  DateTime?
-  status         String    @default("ACTIVE") // ACTIVE, DISABLED
+  status         String    @default("ACTIVE")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id])
   orders         Order[]
 }
 
 model Order {
-  id              String      @id @default(cuid())
-  userId          String
-  user            User        @relation(fields: [userId], references: [id])
-  dpdAccountId    String
-  dpdAccount      DpdAccount  @relation(fields: [dpdAccountId], references: [id])
-  customerOrderNo String?
-  trackingNumber  String?     // Resulting tracking number
-  status          String      @default("PENDING") // PENDING, QUEUED, PROCESSING, SUCCESS, FAILED, CANCELLED
-  
-  // Sender info
-  senderName      String
-  senderCompany   String?
-  senderPhone     String
-  senderAddress   String
-  senderCity      String
-  senderZip       String
-  senderCountry   String      @default("DE")
-
-  // Recipient info
+  id               String     @id @default(cuid())
+  userId           String
+  dpdAccountId     String
+  customerOrderNo  String?
+  trackingNumber   String?
+  status           String     @default("PENDING")
+  senderName       String
+  senderCompany    String?
+  senderPhone      String
+  senderAddress    String
+  senderCity       String
+  senderZip        String
+  senderCountry    String     @default("DE")
   recipientName    String
   recipientPhone   String
   recipientAddress String
   recipientCity    String
   recipientZip     String
   recipientCountry String
-
-  // Parcel info
   weight           Float
   length           Float?
   width            Float?
@@ -75,50 +64,47 @@ model Order {
   sku              String?
   quantity         Int        @default(1)
   declaredValue    Float?
-  
   errorMessage     String?
   batchId          String?
-  batch            Batch?      @relation(fields: [batchId], references: [id])
-  
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  batch            Batch?     @relation(fields: [batchId], references: [id])
+  dpdAccount       DpdAccount @relation(fields: [dpdAccountId], references: [id])
+  user             User       @relation(fields: [userId], references: [id])
 }
 
 model Batch {
   id           String   @id @default(cuid())
   userId       String
-  user         User     @relation(fields: [userId], references: [id])
   fileName     String
   totalCount   Int
   successCount Int      @default(0)
   failCount    Int      @default(0)
-  status       String   @default("PARSING") // PARSING, READY, RUNNING, DONE, ERROR
-  orders       Order[]
+  status       String   @default("PARSING")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id])
+  orders       Order[]
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
   action    String
   detail    String
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model License {
-  id           String    @id @default(cuid())
-  key          String    @unique
-  isActive     Boolean   @default(true)
-  expiresAt    DateTime?
-  usageCount   Int       @default(0)
-  lastUsedAt   DateTime?
-  
-  // 新增限流字段
-  rateLimitCount Int       @default(0)    // 当前窗口已用次数
-  windowStart    DateTime  @default(now()) // 窗口开始时间
-
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  key            String    @unique
+  isActive       Boolean   @default(true)
+  expiresAt      DateTime?
+  usageCount     Int       @default(0)
+  lastUsedAt     DateTime?
+  rateLimitCount Int       @default(0)
+  windowStart    DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }
