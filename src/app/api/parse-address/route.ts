@@ -362,6 +362,7 @@ export async function POST(req: NextRequest) {
       ip,
       license: maskedKey,
       textLength: body.text?.length || 0,
+      rawText: body.text || "",
     });
 
     const parsedRequest = requestSchema.safeParse(body);
@@ -384,6 +385,13 @@ export async function POST(req: NextRequest) {
       : process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
     const endpoint = provider === "openai" ? "responses" : "chat/completions";
     const preprocessed = preprocessInputText(parsedRequest.data.text);
+    logger.info("[PROCESS] 请求预处理完成", {
+      license: maskedKey,
+      rawText: parsedRequest.data.text,
+      normalizedText: preprocessed.normalizedText,
+      rowCount: preprocessed.rows.length,
+      rows: preprocessed.rows,
+    });
 
     const systemPrompt = [
       "Parse pasted German address text into DPD shipment JSON.",
@@ -414,6 +422,7 @@ export async function POST(req: NextRequest) {
       model,
       textLength: body.text.length,
       license: maskedKey,
+      normalizedText: preprocessed.normalizedText,
     });
 
     const response = await fetch(`${baseUrl.replace(/\/$/, "")}/${endpoint}`, {
@@ -482,6 +491,12 @@ export async function POST(req: NextRequest) {
       logger.error("[AI_ERROR] 未获取到 AI 返回文本", { result });
       return json({ error: "AI 未返回可解析结果" }, { status: 502 });
     }
+    logger.info("[AI_RESPONSE] 收到 AI 原始返回", {
+      provider,
+      model,
+      license: maskedKey,
+      rawText,
+    });
 
     const parsedJson = JSON.parse(rawText);
     const parsedResponse = responseSchema.safeParse(parsedJson);
@@ -524,6 +539,7 @@ export async function POST(req: NextRequest) {
       count: shipments.length,
       durationMs,
       license: maskedKey,
+      shipments,
     });
 
     return json({ shipments });
