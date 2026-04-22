@@ -81,48 +81,24 @@ jobs:
           cd src/extension
           zip -r ../../dpd-extension.zip .
 
-      - name: Install crx tool
-        run: npm install -g crx
-
-      - name: Package as .crx
-        run: |
-          echo "${{ secrets.EXTENSION_PRIVATE_KEY }}" > extension_key.pem
-          crx pack src/extension -p extension_key.pem -o dpd-extension.crx
-          rm extension_key.pem
-          # 将 crx 再次打包成 zip 方便初始下载
-          zip dpd-extension-crx-installer.zip dpd-extension.crx
-
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.tag_version.outputs.new_tag }}
-          files: |
-            dpd-extension.zip
-            dpd-extension.crx
-            dpd-extension-crx-installer.zip
+          files: dpd-extension.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate updates.xml and version.json
+      - name: Generate version.json
         run: |
           VERSION=${{ steps.tag_version.outputs.new_tag }}
           VERSION_CLEAN=${VERSION#v}
-          # 生成 updates.xml (保留，万一以后上架商店能用到)
-          cat <<EOF > updates.xml
-          <?xml version='1.0' encoding='UTF-8'?>
-          <gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
-            <app appid='pcfjbigbfcibglpegphbafmolhhkkmdh'>
-              <updatecheck codebase='https://github.com/folgercn/dpd-api/releases/download/$VERSION/dpd-extension.zip' version='$VERSION_CLEAN' />
-            </app>
-          </gupdate>
-          EOF
-          # 生成 version.json (用于解压版自动检测)
           cat <<EOF > version.json
           {
             "version": "$VERSION_CLEAN",
             "url": "https://github.com/folgercn/dpd-api/releases/latest",
             "downloadUrl": "https://github.com/folgercn/dpd-api/releases/download/$VERSION/dpd-extension.zip",
-            "changelog": "优化了识别耗时显示，增加了跳转后自动填单功能。"
+            "changelog": "优化了识别耗时显示，增加了跳转后自动填单功能，实施了严格字段校验。"
           }
           EOF
 

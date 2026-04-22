@@ -301,11 +301,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // 检查更新
   checkUpdates();
 
-  // 绑定设置面板切换
-  settingsToggle.addEventListener('click', () => {
-    settingsPanel.classList.toggle('active');
-  });
-
   // 绑定关闭更新提示
   document.getElementById('closeUpdate').addEventListener('click', () => {
     document.getElementById('updateBanner').style.display = 'none';
