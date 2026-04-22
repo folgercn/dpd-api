@@ -11,6 +11,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Update manifest version from tag
+        run: |
+          # 从 refs/tags/v1.0.2 中提取出 1.0.2
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Bumping version to $VERSION"
+          # 自动替换 manifest.json 中的版本号
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" src/extension/manifest.json
+
       - name: Zip extension
         run: |
           cd src/extension
