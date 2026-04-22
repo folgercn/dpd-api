@@ -236,14 +236,54 @@
     @keyframes shimmers {
       100% { left: 100%; }
     }
+
+    /* 更新提示条样式 */
+    .update-banner {
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      color: #856404;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      animation: slideDown 0.3s ease-out;
+    }
+    @keyframes slideDown {
+      from { transform: translateY(-10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .update-banner a {
+      color: #0056b3;
+      font-weight: bold;
+      text-decoration: underline;
+    }
+    .update-banner .close-update {
+      margin-left: auto;
+      cursor: pointer;
+      opacity: 0.5;
+    }
+    .update-banner .close-update:hover {
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
+  <!-- 更新提示条 -->
+  <div id="updateBanner" class="update-banner" style="display: none;">
+    <span>🚀</span>
+    <span id="updateText">发现新版本!</span>
+    <a href="https://github.com/folgercn/dpd-api/releases" target="_blank">立即下载</a>
+    <span id="closeUpdate" class="close-update">&times;</span>
+  </div>
+
   <div class="header">
     <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
       <div class="mark">DPD</div>
       <h1>AI 填单助手</h1>
-      <span id="versionTag" class="badge">v1.0.0</span>
+      <span id="versionTag" class="badge">v1.0.13</span>
     </div>
     <button id="settingsToggle" class="icon-btn" title="设置">⚙️</button>
   </div>
