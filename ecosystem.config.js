@@ -9,8 +9,7 @@ module.exports = {
       watch: false,
       max_memory_restart: '800M',
       env: {
-        NODE_ENV: 'production',
-        DATABASE_URL: 'file:./dev.db'
+        NODE_ENV: 'production'
       }
     }
   ]
