@@ -30,13 +30,33 @@ jobs:
           DEFAULT_BUMP: patch
 
       # --- 2. 同步版本号到插件配置文件 ---
-      - name: Update manifest version
+      - name: Update extension and package versions
         run: |
           VERSION=${{ steps.tag_version.outputs.new_tag }}
           VERSION_CLEAN=${VERSION#v}
-          echo "Syncing manifest to $VERSION_CLEAN"
-          # 使用 perl 代替 sed 以获得更好的兼容性
-          perl -pi -e "s/\"version\": \".*?\"/\"version\": \"$VERSION_CLEAN\"/" src/extension/manifest.json
+          echo "Syncing extension/package versions to $VERSION_CLEAN"
+          VERSION_CLEAN="$VERSION_CLEAN" node - <<'EOF'
+          const fs = require('fs');
+          const version = process.env.VERSION_CLEAN;
+
+          const manifestPath = 'src/extension/manifest.json';
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          manifest.version = version;
+          fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+
+          const packagePath = 'package.json';
+          const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+          pkg.version = version;
+          fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 2) + '\n');
+
+          const packageLockPath = 'package-lock.json';
+          const lock = JSON.parse(fs.readFileSync(packageLockPath, 'utf8'));
+          lock.version = version;
+          if (lock.packages && lock.packages['']) {
+            lock.packages[''].version = version;
+          }
+          fs.writeFileSync(packageLockPath, JSON.stringify(lock, null, 2) + '\n');
+          EOF
 
       # --- 3. 打包插件 ZIP ---
       - name: Zip extension
@@ -53,8 +73,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # --- 5. 生成 version.json 用于插件在线检查更新 ---
-      - name: Generate version.json
+      # --- 5. 生成 version.json 和 updates.xml 用于插件更新 ---
+      - name: Generate update metadata
         run: |
           VERSION=${{ steps.tag_version.outputs.new_tag }}
           VERSION_CLEAN=${VERSION#v}
@@ -65,6 +85,14 @@ jobs:
             "downloadUrl": "https://github.com/folgercn/dpd-api/releases/download/$VERSION/dpd-extension.zip",
             "changelog": "本地解析引擎优化，适配 DPD 最新发货和退货页面，支持国家选择器和多行地址。"
           }
+          EOF
+          cat <<EOF > updates.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
+            <app appid="dneekmpoflmfalfbnlbookgdcfonncfl">
+              <updatecheck codebase="https://github.com/folgercn/dpd-api/releases/download/$VERSION/dpd-extension.zip" version="$VERSION_CLEAN" />
+            </app>
+          </gupdate>
           EOF
 
       # --- 6. 部署到 GitHub Pages (存放 version.json 和 updates.xml) ---

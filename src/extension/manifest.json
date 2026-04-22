@@ -12,6 +12,7 @@
   ],
   "host_permissions": [
     "https://business.dpd.de/*",
+    "https://dpdapi.sunnywifi.cn/*",
     "https://*/*",
     "http://localhost:3000/*",
     "http://127.0.0.1:3000/*"
@@ -28,7 +29,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://business.dpd.de/*"
+        "https://business.dpd.de/retouren/retoure-beauftragen.aspx*",
+        "https://business.dpd.de/auftragsstart/auftrag-starten.aspx*"
       ],
       "js": ["content.js"]
     }

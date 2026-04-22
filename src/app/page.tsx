@@ -1,66 +1,29 @@
-import Image from "next/image";
 import styles from "./page.module.css";
 
 export default function Home() {
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className={styles.page}>
+      <section className={styles.panel}>
+        <p className={styles.kicker}>DPD Extension Backend</p>
+        <h1 className={styles.title}>扩展前端保留，Web 端精简为 API 服务</h1>
+        <p className={styles.description}>
+          当前仓库只保留 Chrome 扩展所需的最小后端能力，`npm run dev` 启动后主要提供激活码校验和 AI 地址解析接口。
+        </p>
+        <div className={styles.cardGrid}>
+          <article className={styles.card}>
+            <h2>扩展目录</h2>
+            <p>`/src/extension`</p>
+          </article>
+          <article className={styles.card}>
+            <h2>解析接口</h2>
+            <p>`POST /api/parse-address`</p>
+          </article>
+          <article className={styles.card}>
+            <h2>激活接口</h2>
+            <p>`POST /api/auth/verify`</p>
+          </article>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </section>
+    </main>
   );
 }
