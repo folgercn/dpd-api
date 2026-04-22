@@ -80,11 +80,22 @@ jobs:
           cd src/extension
           zip -r ../../dpd-extension.zip .
 
+      - name: Install crx tool
+        run: npm install -g crx
+
+      - name: Package as .crx
+        run: |
+          echo "${{ secrets.EXTENSION_PRIVATE_KEY }}" > extension_key.pem
+          crx pack src/extension -p extension_key.pem -o dpd-extension.crx
+          rm extension_key.pem
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.tag_version.outputs.new_tag }}
-          files: dpd-extension.zip
+          files: |
+            dpd-extension.zip
+            dpd-extension.crx
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -96,7 +107,7 @@ jobs:
           <?xml version='1.0' encoding='UTF-8'?>
           <gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
             <app appid='pcfjbigbfcibglpegphbafmolhhkkmdh'>
-              <updatecheck codebase='https://github.com/folgercn/dpd-api/releases/download/$VERSION/dpd-extension.zip' version='$VERSION_CLEAN' />
+              <updatecheck codebase='https://github.com/folgercn/dpd-api/releases/download/$VERSION/dpd-extension.crx' version='$VERSION_CLEAN' />
             </app>
           </gupdate>
           EOF
@@ -107,3 +118,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .
           publish_branch: gh-pages
+          keep_files: true
