@@ -88,6 +88,8 @@ jobs:
           echo "${{ secrets.EXTENSION_PRIVATE_KEY }}" > extension_key.pem
           crx pack src/extension -p extension_key.pem -o dpd-extension.crx
           rm extension_key.pem
+          # 将 crx 再次打包成 zip 方便初始下载
+          zip dpd-extension-crx-installer.zip dpd-extension.crx
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -96,6 +98,7 @@ jobs:
           files: |
             dpd-extension.zip
             dpd-extension.crx
+            dpd-extension-crx-installer.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
