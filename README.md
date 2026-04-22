@@ -13,6 +13,8 @@ Next.js 后端加上一个 Chrome 扩展程序，利用 AI 解析粘贴的 Excel
 前往 [GitHub Releases](https://github.com/folgercn/dpd-api/releases) 页面，下载最新版本的 `dpd-extension.zip`。
 
 ### 2. 安装插件
+![安装引导图](./docs/images/install-guide.png)
+
 1. 下载后请先 **解压** ZIP 文件到一个固定目录。
 2. 打开 Chrome 浏览器，在地址栏输入 `chrome://extensions/` 并回车。
 3. 在右上角开启 **“开发者模式” (Developer mode)**。
