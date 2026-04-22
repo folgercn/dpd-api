@@ -281,9 +281,21 @@ function updateUIForAuth() {
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
-  // 显示版本号
   const manifest = chrome.runtime.getManifest();
   versionTag.textContent = `v${manifest.version}`;
+  
+  // 检查更新
+  checkUpdates();
+
+  // 绑定设置面板切换
+  settingsToggle.addEventListener('click', () => {
+    settingsPanel.classList.toggle('active');
+  });
+
+  // 绑定关闭更新提示
+  document.getElementById('closeUpdate').addEventListener('click', () => {
+    document.getElementById('updateBanner').style.display = 'none';
+  });
 
   // 1. 加载存储的解析结果 (持久化)
   chrome.storage.local.get(['parsedShipments', 'selectedIndex'], (data) => {
@@ -321,3 +333,45 @@ document.addEventListener('DOMContentLoaded', () => {
     updateUIForAuth();
   });
 });
+
+/**
+ * 检查版本更新
+ */
+async function checkUpdates() {
+  try {
+    const currentVersion = chrome.runtime.getManifest().version;
+    const response = await fetch('https://folgercn.github.io/dpd-api/version.json', { cache: 'no-cache' });
+    if (!response.ok) return;
+    
+    const data = await response.json();
+    const latestVersion = data.version;
+    
+    // 比较版本号
+    if (isNewerVersion(latestVersion, currentVersion)) {
+      const banner = document.getElementById('updateBanner');
+      const text = document.getElementById('updateText');
+      if (banner && text) {
+        text.innerText = `发现新版本 v${latestVersion}!`;
+        banner.style.display = 'flex';
+        // 增加高亮样式
+        const vTag = document.getElementById('versionTag');
+        if (vTag) vTag.style.background = '#dcfce7';
+      }
+    }
+  } catch (error) {
+    console.error('检查更新失败:', error);
+  }
+}
+
+/**
+ * 比较版本号 (1.0.15 > 1.0.14)
+ */
+function isNewerVersion(latest, current) {
+  const l = latest.split('.').map(Number);
+  const c = current.split('.').map(Number);
+  for (let i = 0; i < Math.max(l.length, c.length); i++) {
+    if ((l[i] || 0) > (c[i] || 0)) return true;
+    if ((l[i] || 0) < (c[i] || 0)) return false;
+  }
+  return false;
+}
