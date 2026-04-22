@@ -1,11 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
 const requestSchema = z.object({
-  text: z.string().trim().min(1, "请提供要解析的表格文本"),
+  text: z.string().trim().min(1, "请提供要解析的表格文本").max(
+    Number(process.env.MAX_TEXT_LENGTH) || 10000, 
+    "粘贴文本过长，请分批解析"
+  ),
 });
+
+interface ParseRequest {
+  text: string;
+}
+
+// 1. IP 限流存储 (简单内存模式)
+const ipRateLimitMap = new Map<string, { count: number; lastReset: number }>();
+const IP_LIMIT = Number(process.env.IP_RATE_LIMIT) || 30;
+const LICENSE_LIMIT = Number(process.env.LICENSE_RATE_LIMIT) || 10;
+const WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS) || 60000;
 
 const shipmentSchema = z.object({
   recipientName: z.string().default(""),
@@ -147,7 +162,93 @@ function normalizeShipment(shipment: z.infer<typeof shipmentSchema>) {
 }
 
 export async function POST(req: NextRequest) {
-  const parsedRequest = requestSchema.safeParse(await req.json().catch(() => ({})));
+  try {
+    // 1. IP 级限流校验
+  const ip = req.headers.get("x-forwarded-for") || "unknown";
+  const now = Date.now();
+  const ipData = ipRateLimitMap.get(ip) || { count: 0, lastReset: now };
+
+  if (now - ipData.lastReset > WINDOW_MS) {
+    ipData.count = 1;
+    ipData.lastReset = now;
+  } else {
+    ipData.count++;
+  }
+  ipRateLimitMap.set(ip, ipData);
+
+  if (ipData.count > IP_LIMIT) {
+    return json({ error: "请求过于频繁，请稍后再试" }, { status: 429 });
+  }
+
+  // 2. 鉴权校验
+  const authHeader = req.headers.get("Authorization");
+  const licenseKey = authHeader?.replace("Bearer ", "");
+
+  if (!licenseKey) {
+    return json({ error: "未授权：请提供激活码" }, { status: 401 });
+  }
+
+  const license = await (prisma as any).license.findUnique({
+    where: { key: String(licenseKey) },
+  });
+
+  if (!license || !license.isActive) {
+    return json({ error: "激活码无效或已被禁用" }, { status: 403 });
+  }
+
+  if (license.expiresAt && license.expiresAt < new Date()) {
+    return json({ error: "激活码已过期" }, { status: 403 });
+  }
+
+  // 3. License 级限流校验
+  const windowStart = new Date(license.windowStart).getTime();
+  let updatedRateLimitCount = license.rateLimitCount;
+  let updatedWindowStart = license.windowStart;
+
+  if (now - windowStart > WINDOW_MS) {
+    updatedRateLimitCount = 1;
+    updatedWindowStart = new Date(now);
+  } else {
+    updatedRateLimitCount++;
+  }
+
+  if (updatedRateLimitCount > LICENSE_LIMIT) {
+    return json({ error: "该激活码请求频率过高，请一分钟后再试" }, { status: 429 });
+  }
+
+  // 4. 更新使用次数和限流状态
+  if (license) {
+    await (prisma as any).license.update({
+      where: { id: license.id },
+      data: {
+        usageCount: { increment: 1 },
+        lastUsedAt: new Date(),
+        rateLimitCount: updatedRateLimitCount,
+        windowStart: updatedWindowStart,
+      },
+    });
+  }
+
+  const rawBody = await req.json().catch(() => null);
+  if (!rawBody) {
+    return json({ error: "无效的 JSON 请求体" }, { status: 400 });
+  }
+  const body = rawBody as ParseRequest;
+
+  // 再次确保 license 存在（为了通过 IDE 的严格检查）
+  if (!license) return json({ error: "激活码状态异常" }, { status: 500 });
+
+  const maskedKey = license.key.length > 8 
+    ? `${license.key.slice(0, 4)}...${license.key.slice(-4)}` 
+    : "***";
+
+  logger.info("[RECEIVE] 收到解析请求", { 
+    ip, 
+    license: maskedKey, 
+    textLength: body.text?.length || 0 
+  });
+
+  const parsedRequest = requestSchema.safeParse(body);
   if (!parsedRequest.success) {
     return json({ error: parsedRequest.error.issues[0]?.message || "请求格式无效" }, { status: 400 });
   }
@@ -179,6 +280,15 @@ export async function POST(req: NextRequest) {
     "Return JSON only.",
   ].join(" ");
   const userPrompt = `Parse this pasted table text into JSON shipments:\n\n${parsedRequest.data.text}`;
+
+  // 5. 调用 AI
+  const startTime = Date.now();
+  logger.info("[AI_REQUEST] 发起地址解析", { 
+    provider, 
+    model, 
+    textLength: body.text.length,
+    license: maskedKey 
+  });
 
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/${endpoint}`, {
     method: "POST",
@@ -233,30 +343,54 @@ export async function POST(req: NextRequest) {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    console.error("OpenAI address parse error:", payload);
+    logger.error("[AI_RESPONSE] AI 接口返回错误", { 
+      status: response.status, 
+      error: payload.error,
+      license: license.key 
+    });
     return json({ error: payload.error?.message || "AI 地址解析失败" }, { status: response.status });
   }
 
+  const duration = Date.now() - startTime;
   const outputText = extractResponseText(payload);
   let outputJson: unknown;
   try {
     outputJson = JSON.parse(outputText || "{}");
   } catch (error) {
-    console.error("Non-JSON structured address response:", outputText, error);
+    logger.error("[AI_RESPONSE] 解析响应 JSON 失败", { 
+      outputText, 
+      license: license.key 
+    });
     return json({ error: "AI 返回的地址不是有效 JSON" }, { status: 502 });
   }
 
   const parsedOutput = responseSchema.safeParse(outputJson);
   if (!parsedOutput.success) {
-    console.error("Invalid structured address response:", outputText, parsedOutput.error.flatten());
+    logger.error("[AI_RESPONSE] 响应结构不匹配", { 
+      errors: parsedOutput.error.flatten(),
+      license: license.key 
+    });
     return json({ error: "AI 返回的地址结构不符合预期" }, { status: 502 });
   }
+
+  logger.info("[AI_RESPONSE] 解析成功", { 
+    count: parsedOutput.data.shipments.length, 
+    durationMs: duration,
+    license: license.key 
+  });
 
   return json({
     shipments: parsedOutput.data.shipments.map(normalizeShipment),
     model,
     provider,
   });
+} catch (error: any) {
+  logger.error("[SYSTEM_ERROR] 未捕获的系统错误", { 
+    message: error.message, 
+    stack: error.stack 
+  });
+  return json({ error: "系统内部错误" }, { status: 500 });
+}
 }
 
 export async function OPTIONS() {
