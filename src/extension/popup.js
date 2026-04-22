@@ -29,6 +29,20 @@ function setStatus(message, type = '') {
 function setBusy(isBusy) {
   parseBtn.disabled = isBusy;
   fillBtn.disabled = isBusy || parsedShipments.length === 0;
+  if (isBusy) {
+    parseBtn.classList.add('loading-btn');
+  } else {
+    parseBtn.classList.remove('loading-btn');
+  }
+}
+
+// 辅助函数：保存状态到存储
+async function saveState() {
+  await chrome.storage.local.set({
+    parsedShipments,
+    selectedIndex,
+    lastUpdate: Date.now()
+  });
 }
 
 function renderPreview() {
@@ -40,6 +54,11 @@ function renderPreview() {
     item.type = 'button';
     item.className = `shipment${index === selectedIndex ? ' selected' : ''}`;
     item.dataset.index = String(index);
+    item.onclick = () => {
+      selectedIndex = index;
+      renderPreview();
+      saveState();
+    };
     item.innerHTML = `
       <strong>${escapeHtml(shipment.recipientName || shipment.company || `地址 ${index + 1}`)}</strong>
       <span>${escapeHtml([shipment.addressLine1, shipment.postalCode, shipment.city, shipment.countryCode].filter(Boolean).join(', '))}</span>
@@ -84,29 +103,36 @@ async function parseAddressText() {
   setStatus('正在解析地址...', 'loading');
   setBusy(true);
 
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${await getLicenseKey()}`
-    },
-    body: JSON.stringify({ text }),
-  });
+  const startTime = Date.now();
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${await getLicenseKey()}`
+      },
+      body: JSON.stringify({ text }),
+    });
 
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload.error || '地址解析失败');
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || '地址解析失败');
+    }
+
+    const shipments = Array.isArray(payload) ? payload : payload.shipments;
+    if (!Array.isArray(shipments) || shipments.length === 0) {
+      throw new Error('AI 未识别出可填入的地址');
+    }
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    parsedShipments = shipments;
+    selectedIndex = 0;
+    renderPreview();
+    await saveState();
+    setStatus(`已解析 ${shipments.length} 条地址 (耗时 ${duration}s)，选择后填入当前页`, 'success');
+  } finally {
+    setBusy(false);
   }
-
-  const shipments = Array.isArray(payload) ? payload : payload.shipments;
-  if (!Array.isArray(shipments) || shipments.length === 0) {
-    throw new Error('AI 未识别出可填入的地址');
-  }
-
-  parsedShipments = shipments;
-  selectedIndex = 0;
-  renderPreview();
-  setStatus(`已解析 ${shipments.length} 条地址，选择一条后可填入当前页`, 'success');
 }
 
 async function fillSelectedShipment() {
@@ -128,35 +154,21 @@ async function fillSelectedShipment() {
   }
 
   // Otherwise, redirect and wait
-  setStatus('正在跳转到匹配的 DPD 页面...', 'loading');
+  setStatus('正在跳转并自动填单...', 'loading');
   setBusy(true);
+
+  // 设置自动填单标志，供 content.js 加载后执行
+  await chrome.storage.local.set({ 
+    pendingShipment: shipment,
+    pendingTarget: targetUrl
+  });
+
   await chrome.tabs.update(tab.id, { url: targetUrl });
-
-  // Wait for the page to load
-  let attempts = 0;
-  const checkInterval = setInterval(async () => {
-    attempts++;
-    const currentTab = await chrome.tabs.get(tab.id);
-
-    if (currentTab.status === 'complete' && currentTab.url.startsWith(targetUrl)) {
-      clearInterval(checkInterval);
-      // Small delay to ensure content script is ready
-      setTimeout(async () => {
-        try {
-          await executeFill(tab.id, shipment);
-        } catch (error) {
-          setStatus(error.message, 'error');
-        } finally {
-          setBusy(false);
-        }
-      }, 1500);
-    } else if (attempts > 20) {
-      // 10 seconds timeout
-      clearInterval(checkInterval);
-      setStatus('跳转超时，请手动刷新页面后重试', 'error');
-      setBusy(false);
-    }
-  }, 500);
+  // 提示用户跳转后会自动填写
+  setStatus('页面正在跳转，完成后将自动填单...', 'success');
+  
+  // 对于大部分浏览器，此时弹窗会关闭，由 content.js 接手
+  // 如果弹窗没关闭，我们依然可以留着提示
 }
 
 async function executeFill(tabId, shipment) {
@@ -273,7 +285,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const manifest = chrome.runtime.getManifest();
   versionTag.textContent = `v${manifest.version}`;
 
-  // 加载存储的配置
+  // 1. 加载存储的解析结果 (持久化)
+  chrome.storage.local.get(['parsedShipments', 'selectedIndex'], (data) => {
+    if (data.parsedShipments && data.parsedShipments.length > 0) {
+      parsedShipments = data.parsedShipments;
+      selectedIndex = data.selectedIndex || 0;
+      renderPreview();
+      setStatus(`已恢复上次解析的 ${parsedShipments.length} 条地址`, 'success');
+    }
+  });
+
+  // 2. 加载存储的配置
   chrome.storage.sync.get({ 
     apiUrl: DEFAULT_API_URL,
     licenseKey: ''

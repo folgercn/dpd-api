@@ -228,3 +228,39 @@ function normalizeCountry(country) {
 
   return map[raw] || raw;
 }
+
+// 自动填单逻辑：检查是否有待处理的运单
+async function checkPendingShipment() {
+  try {
+    const data = await chrome.storage.local.get(['pendingShipment', 'pendingTarget']);
+    if (data.pendingShipment) {
+      // 检查当前 URL 是否匹配目标 URL（模糊匹配）
+      const currentUrl = window.location.href;
+      if (data.pendingTarget && currentUrl.includes(data.pendingTarget.split('?')[0])) {
+        console.log('Detecting pending shipment, auto-filling...', data.pendingShipment);
+        
+        // 立即清除，防止页面刷新导致重复执行
+        await chrome.storage.local.remove(['pendingShipment', 'pendingTarget']);
+        
+        // 等待页面完全加载就绪（针对某些动态渲染的 DPD 页面）
+        setTimeout(() => {
+          const shipment = prepareShipment(data.pendingShipment);
+          const result = location.pathname.includes('/retouren/')
+            ? fillReturnPage(shipment)
+            : fillStartOrderPage(shipment);
+          
+          console.log('Auto-fill completed:', result);
+        }, 1500);
+      }
+    }
+  } catch (err) {
+    console.error('DPD Auto-fill check failed:', err);
+  }
+}
+
+// 在页面加载完成后执行检查
+if (document.readyState === 'complete') {
+  checkPendingShipment();
+} else {
+  window.addEventListener('load', checkPendingShipment);
+}
