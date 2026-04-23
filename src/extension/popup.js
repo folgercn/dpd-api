@@ -244,7 +244,7 @@ async function fillSelectedShipment() {
   const shipment = parsedShipments[selectedIndex];
   const weightKg = Number(shipment.weightKg) || 0;
   const hasWeight = weightKg > 0;
-  const isReturn = hasWeight && (shipment.serviceType === 'RETURN' || weightKg > 20);
+  const isReturn = hasWeight && (shipment.serviceType === 'RETURN' || weightKg <= 20);
   const targetUrl = isReturn ? PAGES.RETURN : PAGES.SHIPMENT;
   const targetPageKind = isReturn ? 'RETURN' : 'SHIPMENT';
 
