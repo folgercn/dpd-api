@@ -2,6 +2,9 @@
 
 本文档用于固定当前 `src/extension` 中已经落地的字段映射关系，方便后续维护、排查和改版时快速对照。
 
+如果你当前要做的是“怎么开控制台、怎么抓真实输入框、怎么拿调试日志”，请先看：
+- [docs/extension-debugging.md](/Users/fujun/node/dpd_api/docs/extension-debugging.md)
+
 适用代码版本：
 - 输入解析来源：[src/extension/popup.js](/Users/fujun/node/dpd_api/src/extension/popup.js)
 - 页面填充来源：[src/extension/content.js](/Users/fujun/node/dpd_api/src/extension/content.js)
@@ -12,11 +15,31 @@
 
 1. 用户在扩展弹窗中粘贴 Excel 行文本。
 2. `popup.js` 调用后端 `POST /api/parse-address`。
-3. 后端调用 AI，返回结构化 shipment。
-4. 后端根据 `serviceType` 决定是否附带 `warehouse`。
-5. `content.js` 收到 `shipment` 后，按页面类型把字段写入 DPD 表单。
+3. 后端先按输入格式做预处理：
+   - `4 列格式`：`SKU / 数量 / 重量 / 地址`
+   - `单列格式`：只有地址
+4. 后端只把地址块交给 AI 解析。
+5. 后端返回结构化 shipment，并根据 `serviceType` 决定是否附带 `warehouse`。
+6. `content.js` 收到 `shipment` 后，只填写当前页面，不会自动跳转。
 
-## 1.1 仓库地址返回规则
+## 1.1 输入映射规则
+
+### 4 列格式
+
+| 输入列 | 含义 | 当前处理 |
+| --- | --- | --- |
+| 第 1 列 | `SKU` | 合并进 `reference`，并保留为 `sku` |
+| 第 2 列 | `数量` | 作为 `quantity` |
+| 第 3 列 | `重量` | 作为 `weightKg` |
+| 第 4 列 | 地址块 | 发送给 AI 解析 |
+
+### 单列格式
+
+| 输入 | 当前处理 |
+| --- | --- |
+| 只有地址文本 | 只解析地址，不推断 `SKU / 数量 / 重量` |
+
+## 1.2 仓库地址返回规则
 
 仓库地址来源：
 - `.env` / `.env.local` 中的 `WAREHOUSE_INFO`
@@ -117,6 +140,7 @@
 
 | shipment 字段 | 页面字段 ID |
 | --- | --- |
+| `quantity` | `CPLContentLarge_txtOrderData_ParcelCounter` |
 | `weightKg` | `txtWeight_Parcel_1` |
 | `reference` | `txtOrderData_OrderReferenceList_OrderReference1` |
 
@@ -140,9 +164,17 @@
 
 | shipment 字段 | 页面字段 ID |
 | --- | --- |
-| `country` | `CPLContentLarge_selCountry_WithoutAddress` |
-| `postalCode` | `txtZipCode_WithoutAddress` |
-| `email` | `txtMail_WithoutAddress` |
+| `company` | `txtCompany` |
+| `firstName` | `txtFirstName` |
+| `lastName` | `txtLastName` |
+| `country` | `CPLContentLarge_selCountry_WithAddress` |
+| `postalCode` | `txtZipCode_WithAddress` |
+| `city` | `txtCity` |
+| `street` | `txtStreet` |
+| `houseNumber` | `txtHouseNo` |
+| `email` | `txtMail_WithAddress` |
+| `phone` | `txtPhone` |
+| `quantity` | `CPLContentLarge_txtParcelCount` |
 | `weightKg` | `txtWeight_Parcel1` |
 | `reference` | `txtOrderReference1` |
 
@@ -167,6 +199,12 @@ WAREHOUSE_INFO="公司名, 联系人姓名, 街道门牌, 邮编, 城市, 国家
 | 第 7 段 | `email` |
 | 第 8 段 | `phone` |
 
+同时兼容这类 7 段格式：
+
+```bash
+WAREHOUSE_INFO="公司名, 联系人姓名, 街道门牌, 邮编+城市, 国家, 邮箱, 电话"
+```
+
 ## 6. DOM 查找兜底规则
 
 `fillField()` 当前的查找策略如下：
@@ -188,6 +226,8 @@ WAREHOUSE_INFO="公司名, 联系人姓名, 街道门牌, 邮编, 城市, 国家
 
 - 退货页不会使用 `WAREHOUSE_INFO`。
 - 只有发货页链路才会使用 `WAREHOUSE_INFO`。
+- 扩展不会自动跳转发货页或退货页。
+- 如果当前页面不对，插件会提示操作员先打开正确页面。
 - 页面字段高度依赖 DPD 当前 DOM 结构；如果 DPD 改了字段 ID，这份映射也要同步更新。
 
 ## 8. 建议的维护原则
@@ -198,6 +238,6 @@ WAREHOUSE_INFO="公司名, 联系人姓名, 街道门牌, 邮编, 城市, 国家
 - 发货页字段映射
 - 退货页字段映射
 - 国家归一化规则
-- 重量分流规则
+- 当前页填写规则
 
 这样可以保证“代码里的已映射关系”始终有一份稳定、可核对的书面版本。

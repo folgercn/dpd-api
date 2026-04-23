@@ -302,7 +302,7 @@ function preprocessInputText(rawText: string) {
 function normalizeShipment(shipment: z.infer<typeof shipmentSchema>) {
   const addressLine1 = shipment.addressLine1 || [shipment.street, shipment.houseNumber].filter(Boolean).join(" ");
   const normalizedWeightKg = Number(shipment.weightKg) || 0;
-  const serviceType = shipment.serviceType === "UNKNOWN" && normalizedWeightKg > 20 ? "RETURN" : shipment.serviceType;
+  const serviceType = shipment.serviceType === "UNKNOWN" && normalizedWeightKg <= 20 ? "RETURN" : shipment.serviceType;
   const warehouse = getWarehouseInfo();
   const shouldIncludeWarehouse = serviceType !== "RETURN";
 
@@ -518,9 +518,9 @@ export async function POST(req: NextRequest) {
 
       const mergedWeightKg = extracted.weightKg ?? normalized.weightKg;
       const mergedServiceType =
-        normalized.serviceType === "RETURN" || mergedWeightKg > 20
+        normalized.serviceType === "RETURN" || mergedWeightKg <= 20
           ? "RETURN"
-          : normalized.serviceType;
+          : "SHIPMENT";
 
       return {
         ...normalized,
